@@ -1,0 +1,14 @@
+seu_projeto_analise_empenhos/
+├── data/
+│   ├── raw/           # Dados brutos, exatamente como extraídos
+│   └── processed/     # Dados tratados e "trusted"
+├── notebooks/         # Jupyter Notebooks para exploração e prototipagem
+├── src/               # Scripts Python para extração, tratamento e análise
+│   ├── extraction.py
+│   ├── processing.py
+│   └── analysis.py
+├── tests/             # Testes unitários (opcional, mas recomendado para scripts críticos)
+├── .gitignore         # Arquivo para o Git ignorar arquivos e diretórios
+├── requirements.txt   # Dependências do projeto
+├── README.md          # Descrição do projeto, instruções de uso, etc.
+└── environment.yml    # (Opcional, se usar Conda) Ambiente virtual
