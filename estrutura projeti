@@ -1,14 +1,20 @@
-seu_projeto_analise_empenhos/
+Projeto_Saldo_Empenhos/
+├── .git/                  # Gerenciado pelo Git (pasta oculta)
+├── .venv/                 # Ambiente virtual (ou Saldo_Empenho/ se você nomeou assim)
 ├── data/
-│   ├── raw/           # Dados brutos, exatamente como extraídos
-│   └── processed/     # Dados tratados e "trusted"
-├── notebooks/         # Jupyter Notebooks para exploração e prototipagem
-├── src/               # Scripts Python para extração, tratamento e análise
-│   ├── extraction.py
-│   ├── processing.py
-│   └── analysis.py
-├── tests/             # Testes unitários (opcional, mas recomendado para scripts críticos)
-├── .gitignore         # Arquivo para o Git ignorar arquivos e diretórios
-├── requirements.txt   # Dependências do projeto
-├── README.md          # Descrição do projeto, instruções de uso, etc.
-└── environment.yml    # (Opcional, se usar Conda) Ambiente virtual
+│   ├── raw/               # Dados brutos, exatamente como extraídos
+│   │   └── 2023/          # Exemplo de subpasta por ano
+│   │       ├── empenhos_2023.csv
+│   │       ├── liquidacoes_2023.csv
+│   │       └── pagamentos_2023.csv
+│   └── processed/         # Dados tratados, limpos e prontos para análise
+├── notebooks/             # Jupyter Notebooks para exploração e prototipagem
+│   └── 1_extract_raw_data.ipynb  # Notebook para coletar e salvar os dados brutos
+├── src/                   # Scripts Python para extração, tratamento e análise (ainda vazia ou com placeholders)
+│   ├── __init__.py        # Arquivo vazio para indicar que 'src' é um pacote Python
+│   ├── extraction.py      # Futuro script para a lógica de extração
+│   ├── processing.py      # Futuro script para a lógica de tratamento
+│   └── analysis.py        # Futuro script para a lógica de cálculo de saldo
+├── .gitignore             # Define quais arquivos e pastas o Git deve ignorar
+├── requirements.txt       # Lista todas as dependências do projeto com suas versões
+└── README.md              # Descrição do projeto, instruções, etc. (ainda a ser preenchido)
