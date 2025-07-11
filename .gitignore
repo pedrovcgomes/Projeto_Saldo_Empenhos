@@ -9,4 +9,4 @@ Saldo_Empenho/
 # Arquivos de configuração sensíveis
 .env
 # Ignorar toda a pasta de dados, pois contém arquivos grandes e gerados
-data/
+data/git rm -r --cached .env
