@@ -3,5 +3,10 @@
 __pycache__/
 *.pyc
 *.csv
+.vscode/
 # Ignorar o ambiente virtual
 Saldo_Empenho/
+# Arquivos de configuração sensíveis
+.env
+# Ignorar toda a pasta de dados, pois contém arquivos grandes e gerados
+data/git rm -r --cached .env

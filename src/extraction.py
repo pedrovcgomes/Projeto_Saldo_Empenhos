@@ -2,11 +2,16 @@ import requests
 import pandas as pd
 import os
 import time
+from dotenv import load_dotenv
 # --- Configurações que são globais para a extração ---
 # CNPJ_EMPRESA, ORDENACAO, API_KEY e FASENOMES devem vir para cá
+
+load_dotenv() # Carrega as variáveis de ambiente do arquivo .env
 CNPJ_EMPRESA = "03045711000170"
 ORDENACAO = 4
-API_KEY = "***REMOVED_API_KEY_PLACEHOLDER***"
+API_KEY = os.getenv('PORTAL_TRANSPARENCIA_API_KEY')
+if not API_KEY:
+    raise ValueError("A chave da API (PORTAL_TRANSPARENCIA_API_KEY) não está definida. Verifique seu arquivo .env ou variáveis de ambiente.")
 
 FASENOMES = {
     1: "Empenhos",
