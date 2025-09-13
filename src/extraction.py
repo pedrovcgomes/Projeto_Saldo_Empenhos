@@ -1,105 +1,65 @@
-import requests
+
 import pandas as pd
 import os
-import time
 from dotenv import load_dotenv
-# --- Configurações que são globais para a extração ---
-# CNPJ_EMPRESA, ORDENACAO, API_KEY e FASENOMES devem vir para cá
+from pathlib import Path
+import time
+import json
+from api_client import coletar_itens_empenho_completos, consultar_documentos_relacionados 
 
-load_dotenv() # Carrega as variáveis de ambiente do arquivo .env
-CNPJ_EMPRESA = "03045711000170"
-ORDENACAO = 4
-API_KEY = os.getenv('PORTAL_TRANSPARENCIA_API_KEY')
-if not API_KEY:
-    raise ValueError("A chave da API (PORTAL_TRANSPARENCIA_API_KEY) não está definida. Verifique seu arquivo .env ou variáveis de ambiente.")
+# Carregar variáveis de ambiente
+load_dotenv()
 
-FASENOMES = {
-    1: "Empenhos",
-    2: "Liquidações",
-    3: "Pagamentos"
-}
-# --- Fim das Configurações ---
-def coletar_dados_por_fase(fase: int, ano: int) -> pd.DataFrame:
+# Caminho para a lista de empenhos que você quer processar
+# AJUSTE ESTE CAMINHO PARA O SEU ARQUIVO REAL DE EMPENHOS
+CAMINHO_LISTA_EMPENHOS = Path(__file__).resolve().parent.parent / 'data' / 'trusted' / '2024' / 'empenhos' / 'empenhos_2024_processadas.xlsx'
+BASE_RAW_DATA_OUTPUT_DIR = Path(__file__).resolve().parent.parent / 'data' / 'raw_details'
+
+def run_detailed_extraction(caminho_empenhos_input: Path, output_dir: Path):
     """
-    Coleta dados de uma fase específica e ano do Portal da Transparência.
-
-    Args:
-        fase (int): Código da fase (1 para Empenhos, 2 para Liquidações, 3 para Pagamentos).
-        ano (int): Ano da coleta.
-
-    Returns:
-        pd.DataFrame: DataFrame contendo os dados coletados.
+    Extrai detalhes (histórico e pagamentos) para cada empenho de uma lista.
     """
-    pagina = 1
-    resultados = []
+    os.makedirs(output_dir / 'historicos', exist_ok=True)
+    os.makedirs(output_dir / 'pagamentos', exist_ok=True)
 
-    while True:
-        url = "https://api.portaldatransparencia.gov.br/api-de-dados/despesas/documentos-por-favorecido"
-        params = {
-            "codigoPessoa": CNPJ_EMPRESA,
-            "fase": fase,
-            "ano": ano,
-            "pagina": pagina,
-            "ordenacaoResultado": ORDENACAO
-        }
-        headers = {
-            "chave-api-dados": API_KEY,
-            "accept": "*/*"
-        }
-        
-        try:
-            response = requests.get(url, params=params, headers=headers)
-            response.raise_for_status() # Lança um HTTPError para 4xx/5xx responses
-            dados = response.json()
-            
-            if not dados:
-                break
-            
-            resultados.extend(dados)
-            print(f"✅ {FASENOMES[fase]} {ano}: Página {pagina} com {len(dados)} registros")
-            pagina += 1
-            time.sleep(0.5) # Boa prática: Pausa para não sobrecarregar a API
-            
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ Erro de requisição na fase {fase}, ano {ano}, página {pagina}: {e}")
-            break
-        except ValueError as e:
-            print(f"⚠️ Erro ao decodificar JSON na fase {fase}, ano {ano}, página {pagina}: {e}. Resposta: {response.text}")
-            break
+    try:
+        # Garante que o 'documento' (código do empenho) seja lido como string
+        df_empenhos = pd.read_excel(caminho_empenhos_input, dtype={'documento': str})
+        print(f"✅ {len(df_empenhos)} empenhos carregados da lista.")
+    except FileNotFoundError:
+        print(f"❌ Erro: Lista de empenhos não encontrada em '{caminho_empenhos_input}'.")
+        return
+    except Exception as e:
+        print(f"❌ Erro ao carregar a lista de empenhos do Excel: {e}")
+        return
 
-    return pd.DataFrame(resultados)
+    for index, row in df_empenhos.iterrows():
+        codigo_empenho = row['documento']
+        print(f"\n--- Extraindo detalhes para o empenho: {codigo_empenho} ({index+1}/{len(df_empenhos)}) ---")
 
+        # 1. Extrair Histórico de Itens (para calcular o valor atualizado do empenho)
+        # O resultado de coletar_itens_empenho_completos já é um dicionário, pronto para JSON
+        historico_itens = coletar_itens_empenho_completos(codigo_empenho)
+        if historico_itens: # Salva apenas se houver dados
+            with open(output_dir / 'historicos' / f'{codigo_empenho}_historico.json', 'w', encoding='utf-8') as f:
+                json.dump(historico_itens, f, indent=4, ensure_ascii=False)
+            print(f"✅ Histórico salvo para {codigo_empenho}")
+        else:
+            print(f"❌ Nenhum histórico encontrado ou erro na extração para {codigo_empenho}. Não será salvo.")
 
-def run_extraction(anos_para_coletar: list, base_raw_dir: str):
-    """
-    Orquestra a coleta e o salvamento de dados para múltiplos anos e fases.
+        # 2. Extrair Documentos Relacionados (para obter os pagamentos)
+    
+        docs_relacionados = consultar_documentos_relacionados(codigo_empenho)
+        if docs_relacionados:
+            with open(output_dir / 'pagamentos' / f'{codigo_empenho}_documentos_relacionados.json', 'w', encoding='utf-8') as f:
+                json.dump(docs_relacionados, f, indent=4, ensure_ascii=False)
+            print(f"✅ Documentos relacionados salvos para {codigo_empenho}")
+        else:
+            print(f"❌ Nenhum documento relacionado encontrado ou erro na extração para {codigo_empenho}. Não será salvo.")
+        # Pausa para evitar sobrecarga na API
+        time.sleep(1) # Pausa para não sobrecarregar a API
 
-    Args:
-        anos_para_coletar (list): Lista de anos para coletar os dados.
-        base_raw_dir (str): Caminho base onde os dados brutos serão salvos (ex: "data/raw").
-    """
-    for ano in anos_para_coletar:
-        for fase in [1, 2, 3]:
-            print(f"\nIniciando coleta para {FASENOMES[fase]} no ano {ano}...")
-            df = coletar_dados_por_fase(fase, ano)
-            
-            if not df.empty:
-                ano_dir = os.path.join(base_raw_dir, str(ano))
-                os.makedirs(ano_dir, exist_ok=True)
-                
-                nome_arquivo_csv = f"{FASENOMES[fase].lower()}_{ano}.csv"
-                caminho_completo_arquivo = os.path.join(ano_dir, nome_arquivo_csv)
-                
-                df.to_csv(caminho_completo_arquivo, index=False, encoding='utf-8-sig')
-                print(f"📁 CSV salvo: {caminho_completo_arquivo}")
-            else:
-                print(f"⚠️ Nenhum dado coletado para {FASENOMES[fase]} no ano {ano}. CSV não salvo.")
-
-# Esta parte só será executada se o script for rodado diretamente (não importado)
 if __name__ == "__main__":
-    ANOS_COLETA = [2023, 2024, 2025] # Defina aqui os anos que deseja coletar ao rodar o script diretamente
-    BASE_RAW_DATA_PATH = "data/raw" # Caminho relativo à raiz do projeto
-
-    print("Iniciando processo de extração de dados brutos...")
-    run_extraction(ANOS_COLETA, BASE_RAW_DATA_PATH)
-    print("\nProcesso de extração concluído!")
+    print("Iniciando a extração detalhada de empenhos...")
+    run_detailed_extraction(CAMINHO_LISTA_EMPENHOS, BASE_RAW_DATA_OUTPUT_DIR)
+    print("\nExtração detalhada concluída!")

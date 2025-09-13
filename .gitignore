@@ -1,12 +1,26 @@
-# Conteúdo do .gitignore
-.venv/
-__pycache__/
-*.pyc
-*.csv
-.vscode/
-# Ignorar o ambiente virtual
-Saldo_Empenho/
-# Arquivos de configuração sensíveis
+# Dados e arquivos temporários
+data/
+*.json
+
+# Variáveis de ambiente
 .env
-# Ignorar toda a pasta de dados, pois contém arquivos grandes e gerados
-data/git rm -r --cached .env
+.env.local
+.env.*.local
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# ignorar o ambiente virtual
+Saldo_Empenho/
