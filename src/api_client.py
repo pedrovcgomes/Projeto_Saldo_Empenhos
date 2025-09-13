@@ -5,6 +5,7 @@ import time
 from dotenv import load_dotenv
 from pathlib import Path
 import json
+from decimal import Decimal
 
 # --- Configurações que são globais para a extração ---
 # como o arquivo api_client.py está em src e o ambiente virtual(.env) está na raiz do projeto, então:
@@ -175,12 +176,93 @@ def consultar_documentos_relacionados(codigo_empenho: str) -> list:
         time.sleep(0.5)
     return resultados
 
+# Consulta de empenhos impactados
+def consultar_empenho_impactado(codigo_documento, fase, empenho_alvo):
+    """
+    Consulta a API para descobrir quanto do documento foi usado no empenho específico.
+    """
+    url = "https://api.portaldatransparencia.gov.br/api-de-dados/despesas/empenhos-impactados"
+    
+    params = {
+        'codigoDocumento': codigo_documento,
+        'fase': fase,
+        'pagina': 1
+    }
+    
+    headers = {
+        'accept': '*/*',
+        'chave-api-dados': API_KEY
+    }
+    
+    try:
+        print(f"   🔍 Consultando: {codigo_documento} (fase {fase})")
+        
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        print(f"   📊 Resposta API: {len(data)} empenhos impactados")
+        
+        # Procurar pelo empenho específico nos resultados
+        valor_total = Decimal('0')
+        encontrado = False
+        
+        for item in data:
+            if item.get('empenho') == empenho_alvo:
+                encontrado = True
+                print(f"   ✅ Empenho {empenho_alvo} ENCONTRADO!")
+                
+                # Verificar campos de valor baseado na fase
+                if fase == 3:  # Pagamento
+                    campos = ['valorPago', 'valorRestoPago']
+                elif fase == 2:  # Liquidação
+                    campos = ['valorLiquidado']
+                else:
+                    campos = []
+                
+                for campo in campos:
+                    valor_str = item.get(campo, '0,00')
+                    if valor_str and valor_str != '0,00':
+                        valor = Decimal(valor_str.replace('.', '').replace(',', '.'))
+                        valor_total += valor
+                        print(f"   💰 {campo}: R$ {formatar_valor(valor)}")
+                
+                break  # Já encontramos, pode sair do loop
+        
+        if not encontrado:
+            print(f"   ❌ Empenho {empenho_alvo} NÃO encontrado nos impactados")
+        else:
+            print(f"   🎯 Total utilizado: R$ {formatar_valor(valor_total)}")
+        
+        return valor_total
+        
+    except requests.RequestException as e:
+        error_msg = f"Erro na requisição HTTP: {e}"
+        print(f"   ❌ {error_msg}")
+        raise Exception(error_msg)
+    except json.JSONDecodeError as e:
+        error_msg = f"Erro ao decodificar JSON: {e}"
+        print(f"   ❌ {error_msg}")
+        raise Exception(error_msg)
+    except Exception as e:
+        error_msg = f"Erro inesperado: {e}"
+        print(f"   ❌ {error_msg}")
+        raise Exception(error_msg)
+
+def formatar_valor(valor):
+    """Formata valor decimal para padrão brasileiro"""
+    if isinstance(valor, str):
+        valor = Decimal(valor.replace('.', '').replace(',', '.'))
+    
+    valor_str = f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    return valor_str
 
 # --- Bloco de teste (opcional, pode ser removido ou alterado para testes mais específicos) ---
 if __name__ == "__main__":
     print("Testando api_client.py diretamente...")
     # Use o mesmo empenho de teste que sabemos que funciona em ambas as APIs
-    empenho_teste_valido = '344001342012022NE000223'
+    empenho_teste_valido = '170116000012024NE000060'
 
     print(f"\n--- Teste de Histórico de Empenho Completo para {empenho_teste_valido} ---")
     historico_completo = coletar_itens_empenho_completos(empenho_teste_valido)
@@ -201,3 +283,15 @@ if __name__ == "__main__":
         print(df_empenhos_2024.head())
     except ValueError as e: # Catch the ValueError if API_KEY is not found
         print(f"Erro ao testar coleta por fase: {e}")
+
+    #  teste para a função de impacto
+    print("\n--- Teste de Empenho Impactado (Exemplo) ---")
+    documento_teste = "170116000012023DF803291 " # Documento de pagamento
+    fase_teste = 3 # Pagamento
+    empenho_alvo_teste = "170116000012023NE000049"
+    
+    try:
+        valor_usado = consultar_empenho_impactado(documento_teste, fase_teste, empenho_alvo_teste)
+        print(f"\nValor final usado no empenho {empenho_alvo_teste} pelo documento {documento_teste} foi de R$ {valor_usado:.2f}".replace('.',','))
+    except Exception as e:
+        print(f"Falha no teste de empenho impactado: {e}")
