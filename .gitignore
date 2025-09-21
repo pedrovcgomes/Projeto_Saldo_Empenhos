@@ -24,3 +24,4 @@ Thumbs.db
 
 # ignorar o ambiente virtual
 Saldo_Empenho/
+venv/
